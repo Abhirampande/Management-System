@@ -1,9 +1,12 @@
 package com.management.managementsystem.controllers;
 
+import com.management.managementsystem.entities.RefreshToken;
 import com.management.managementsystem.entities.User;
 import com.management.managementsystem.models.JwtRequest;
 import com.management.managementsystem.models.JwtResponse;
+import com.management.managementsystem.models.RefreshTokenRequest;
 import com.management.managementsystem.security.JwtTokenHelper;
+import com.management.managementsystem.services.RefreshTokenService;
 import com.management.managementsystem.services.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +37,9 @@ public class AuthController {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    private RefreshTokenService refreshTokenService;
+
 
     @PostMapping("/login")
     public ResponseEntity<JwtResponse> login(@RequestBody JwtRequest request) {
@@ -44,8 +50,11 @@ public class AuthController {
         UserDetails userDetails = userDetailsService.loadUserByUsername(request.getEmail());
         String token = this.helper.generateToken(userDetails);
 
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(userDetails.getUsername());
+
         JwtResponse response = JwtResponse.builder()
                 .jwtToken(token)
+                .refreshToken(refreshToken.getRefreshToken())
                 .username(userDetails.getUsername()).build();
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
@@ -59,6 +68,23 @@ public class AuthController {
         } catch (BadCredentialsException e) {
             throw new BadCredentialsException(" Invalid Username or Password  !!");
         }
+
+    }
+
+    @PostMapping("/refresh")
+    public JwtResponse refreshJwtToken(@RequestBody RefreshTokenRequest request){
+
+       RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(request.getRefreshToken());
+
+       User user = refreshToken.getUser();
+
+       String token = this.helper.generateToken(user);
+
+       return JwtResponse.builder().refreshToken(refreshToken.getRefreshToken())
+               .jwtToken(token)
+               .username(user.getEmail())
+               .build();
+
 
     }
 
